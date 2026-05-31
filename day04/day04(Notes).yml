@@ -1,0 +1,1268 @@
+📑 Agenda – Day 04 | Introduction to Playwright and Locators
+⏱ Total Duration: 3.5 Hours
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│     Time      │                      Session                                │ Duration │
+├───────────────┼─────────────────────────────────────────────────────────────┼──────────┤
+│ 9:00 – 9:30   │ Asynchronous programming + Interview Question		      │ 30 mins  │
+│ 9:30 – 9:50   │ Introduction to Playwright 	                    	      │ 20 mins  │
+│ 9:50 – 10:00  │ Write a basic first test script	                      │ 10 mins  │
+│ 10:00 – 11:00 │ Page Fixture - Configuration File			      │ 60 mins  │
+│ 11:00 – 11:20 │ BREAKOUT 				                      │ 20 mins  │
+│ 11:20 – 11:50 │ Learn basic CSS			                      │ 30 mins  │
+│ 11:50 – 12:20 │ Learn basic XPath - Relative Xpath                          │ 30 mins  │
+│ 12:20 – 12:30 │ BREAKOUT → Hands'on              	      		      │ 10 mins  │
+└───────────────┴─────────────────────────────────────────────────────────────┴──────────┘
+
+-----------------------------------------------------------------
+Why Asynchronous Programming?
+Asynchronous programming is a programming technique where long-running operations 
+are executed without blocking the main execution thread. The program can continue 
+performing other tasks while waiting for the operation to complete, improving 
+responsiveness and performance.
+
+------------------------------------------------------------------
+What is a Promise?
+=====================
+
+A Promise is a JavaScript object that represents the future result of an asynchronous operation.
+
+Think of it this way:
+
+Current Status:
+"I have started the work."
+
+Future Status:
+"I will either complete it successfully
+or fail."
+
+A Promise is JavaScript's way of saying:
+
+"I don't have the result right now.
+I'll give it to you later."
+Promise States
+
+A Promise can be in only one of three states.
+
+1. Pending
+2. Fulfilled (Resolved)
+3. Rejected
+----------------------------------------------------
+Pending
+========
+Work is still running.
+
+Downloading file...
+Calling API...
+Loading webpage...
+
+
+Fulfilled
+=========
+Work completed successfully.
+
+API response received.
+File downloaded.
+Page loaded.
+
+Rejected
+========
+Work failed.
+
+Network error.
+Server error.
+File not found.
+
+========================================================================
+
+What is async?
+===================================
+
+async is a keyword used to declare an asynchronous function.
+
+An async function always returns a Promise, regardless of what value you return.
+
+Which Functions Can Be Async?
+1)Function Declaration
+2)Function Expression
+3)Arrow Function
+
+Note : Playwright page methods are typically async.
+
+What is await?
+===================================
+
+await is used to pause the execution of an async function until a Promise is resolved or rejected.
+
+Without await, JavaScript continues execution immediately.
+
+With await, JavaScript waits for the result before moving to the next line.
+
+Why do we need Async/Await?
+
+Consider the following operations:
+----------------------------------
+API calls
+Database calls
+File reading
+Browser automation (Playwright)
+Network requests
+
+These operations take time to complete.
+
+Instead of blocking the entire application, JavaScript performs them asynchronously.
+
+Async/Await provides a cleaner way to handle such operations compared to .then()[callback hell] chains.
+
+Which Functions Can Use await?
+------------------------------
+Rule
+
+await can only be used inside:
+1)Async Functions
+2)Top-level modules (modern JavaScript environments)
+
+
+================================================================================
+              WHAT REALLY HAPPENS WHEN YOU WRITE: await page.click('#login')
+================================================================================
+
+Let's take a real Playwright line:
+
+await page.click('#login');
+
+
+================================================================================
+                    STEP-BY-STEP BREAKDOWN
+================================================================================
+
+STEP 1: Playwright returns a Promise
+--------------------------------------------------------------------------------
+page.click() immediately returns a Promise.
+
+
+The function doesn't wait yet — it just returns a Promise object immediately.
+
+
+STEP 2: await sees a Promise
+--------------------------------------------------------------------------------
+await tells JavaScript:
+  "Pause this function here and continue after this Promise finishes."
+
+IMPORTANT:
+  ✓ Only the current function pauses
+  ✓ The JS engine keeps running other work (event loop continues)
+  ✓ Other tests, timers, or callbacks can still execute
+
+VISUAL:
+--------------------------------------------------------------------------------
+async function test() {
+  console.log('Before click');     // ← Executes immediately
+  await page.click('#login');       // ← PAUSE HERE (Promise pending)
+  console.log('After click');       // ← Waits until Promise resolves
+}
+
+
+STEP 3: Callback is registered (hidden from you)
+--------------------------------------------------------------------------------
+Internally, this happens:
+
+page.click().then(() => {
+  // resume test execution here
+});
+
+That then(() => { ... }) is the callback.
+
+The callback is registered but NOT executed yet.
+It sits waiting for the Promise to complete.
+
+
+STEP 4: Browser action happens
+--------------------------------------------------------------------------------
+Playwright:
+  • Sends command to browser via WebSocket
+  • Waits for action + auto-waits (visibility, stability, etc.)
+  • This happens OUTSIDE the JS call stack
+
+Playwright's auto-waiting ensures:
+  ✓ Element is attached to DOM
+  ✓ Element is visible
+  ✓ Element is stable (not moving)
+  ✓ Element is clickable (not covered)
+
+This is why Playwright doesn't need explicit waitForElementVisible().
+
+
+STEP 5: Promise is fulfilled
+--------------------------------------------------------------------------------
+Once the click completes:
+  • Promise status changes from Pending → Fulfilled
+  • Resume callback is placed in Microtask Queue
+
+PROMISE STATES:
+--------------------------------------------------------------------------------
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Pending   │ →  │  Fulfilled  │ or │   Rejected  │
+│  (Waiting)  │    │ (Success)   │    │  (Error)    │
+└─────────────┘    └─────────────┘    └─────────────┘
+
+
+STEP 6: Event loop resumes your test
+--------------------------------------------------------------------------------
+When call stack is empty:
+  • Microtask queue is processed
+  • Your test function continues
+  • console.log('After click'); executes
+
+EVENT LOOP PRIORITY:
+--------------------------------------------------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. Call Stack (currently executing code)                                    │
+│ 2. Microtask Queue (Promise callbacks, queueMicrotask) ← await resumes here │
+│ 3. Task Queue (setTimeout, setInterval, I/O events)                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                    COMPLETE VISUAL FLOW
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Step 1: page.click() returns Promise immediately                            │
+│ Step 2: await pauses test function                                          │
+│ Step 3: Callback registered (Promise.then())                                │
+│ Step 4: Playwright sends command to browser (auto-wait + click)             │
+│ Step 5: Promise fulfills → callback added to Microtask Queue                │
+│ Step 6: Event loop picks callback → test resumes                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                    TIMELINE DIAGRAM
+================================================================================
+
+Time →
+
+Test:  "Before click" → [PAUSED] ................... → "After click"
+        │                  │                            ↑
+        │                  │                            │
+Playwright:               [Click command to browser]    │
+                          [Auto-wait + Action]          │
+                          [Promise resolves] ───────────┘
+
+Promise:  [Pending] ................................. [Fulfilled]
+                          ↑
+                          │
+Microtask Queue:          [Callback waiting] → [Processed]
+
+
+================================================================================
+                    KEY INSIGHTS (INTERVIEW READY)
+================================================================================
+
+1. await does NOT block the entire JavaScript engine
+   ────────────────────────────────────────────────────────────────────────────
+   • Only the current async function pauses
+   • Other code (other tests, timers) can still run
+   • This is NOT like Thread.sleep() in Java
+
+2. Playwright's auto-waiting happens OUTSIDE the JS call stack
+   ────────────────────────────────────────────────────────────────────────────
+   • Visibility checks, stability checks happen in browser
+   • JS engine is free to do other work
+   • This is why Playwright tests are efficient
+
+3. Promise callbacks go to Microtask Queue (higher priority)
+   ────────────────────────────────────────────────────────────────────────────
+   • Microtask Queue is processed BEFORE Task Queue
+   • This ensures Promise callbacks happen quickly
+   • Higher priority than setTimeout callbacks
+
+4. Playwright actions are NOT synchronous
+   ────────────────────────────────────────────────────────────────────────────
+   • Without await, test would continue immediately
+   • Click may not have happened yet
+   • This would cause flaky tests
+
+
+================================================================================
+                    COMMON INTERVIEW QUESTIONS
+================================================================================
+
+Q: What happens if I remove await?
+────────────────────────────────────────────────────────────────────────────────
+A: Without await, the test continues immediately without waiting for the click
+   to complete. This leads to race conditions and flaky tests.
+
+await page.click('#login');  // ✓ Waits for click
+page.click('#login');         // ✗ Continues immediately (Promise not awaited)
+
+
+Q: Is await same as Thread.sleep()?
+────────────────────────────────────────────────────────────────────────────────
+A: NO. Thread.sleep() blocks the entire thread. await only pauses the current
+   async function while allowing other JavaScript code to run.
+
+
+Q: How does Playwright know when to resume?
+────────────────────────────────────────────────────────────────────────────────
+A: Through the Promise's then() callback. When the browser action completes,
+   the Promise resolves and the callback is added to Microtask Queue.
+   The event loop then executes it when call stack is empty.
+
+
+Q: Why doesn't Playwright need explicit waitForElementVisible()?
+────────────────────────────────────────────────────────────────────────────────
+A: Playwright's auto-waiting is built into every action. Before clicking,
+   it automatically waits for:
+   • Element to be attached
+   • Element to be visible
+   • Element to be stable
+   • Element to be clickable
+
+
+
+
+================================================================================
+                    REAL EXAMPLE WITH TIMING
+================================================================================
+
+import { test } from '@playwright/test';
+
+test('demo', async ({ page }) => {
+
+  console.log('1: Before goto');           // ← Executes immediately
+  await page.goto('https://example.com');  // ← Pauses here
+  console.log('2: After goto');            // ← Resumes after page loads
+
+  console.log('3: Before click');          // ← Executes immediately
+  await page.click('#login');              // ← Pauses here
+  console.log('4: After click');           // ← Resumes after click completes
+});
+
+ACTUAL SEQUENCE:
+--------------------------------------------------------------------------------
+1: Before goto          (immediate)
+[Waiting for page load...]
+2: After goto           (after page loads)
+3: Before click         (immediate)
+[Waiting for element + click...]
+4: After click          (after click completes)
+
+
+================================================================================
+                    ONE-LINE TAKEAWAY (INTERVIEW READY)
+================================================================================
+
+"When you write await page.click(), Playwright immediately returns a Promise,
+pauses only the current test function, registers a callback, sends the click
+command to the browser with auto-waiting, and when the Promise resolves, the
+callback is placed in the Microtask Queue, which the event loop processes to
+resume the test — all without blocking other JavaScript code."
+
+-------------------------------------------
+
+1. In-Process Automation
+
+What it is
+
+Automation code runs inside the browser process.
+Test code and application code share the same runtime.
+
+Example
+
+Application
+     ↓
+Browser Process
+     ↓
+Cypress Test Code
+
+Why we need it
+
+Direct access to DOM.
+Fast communication.
+
+Problem it solves
+
+Eliminates external driver communication.
+
+Tool Example : Cypress
+-------------------------------------------------------------------------------------
+2. Out-of-Process Automation
+
+What it is
+
+Test code runs outside the browser.
+Commands are sent to the browser through an external layer.
+
+Example
+
+Test Script
+      ↓
+WebDriver
+      ↓
+Browser Driver
+      ↓
+Browser
+
+Why we need it?
+
+Process isolation.
+Browser independence.
+
+Problem it solves?
+
+Standardized browser automation.
+
+Tool Example : Selenium
+
+
+------------------------------------------------------------------
+
+Where Does Playwright Fit?
+Playwright is Neither Pure In-Process Nor Pure Out-of-Process
+
+Architecture :
+
+Playwright Test
+(Node.js Process)
+        ↓
+Playwright API
+        ↓
+WebSocket / CDP / Browser Protocol
+        ↓
+Browser Process
+        ↓
+Renderer Process
+
+Notice:
+
+Test code runs outside the browser ✅
+No WebDriver/ChromeDriver ❌
+Direct browser protocol communication ✅
+Why People Call Playwright "Hybrid"
+
+Because it combines advantages of both approaches.
+
+From Out-of-Process
+
+Playwright gets:
+
+Process Isolation
+Separate Test Runtime
+Better Stability
+
+Like Selenium.
+
+From In-Process
+
+Playwright gets:
+
+Fast Communication
+Real-time Events
+Network Interception
+Tracing
+Auto Waiting
+
+Like Cypress.
+========================================================================
+
+W3C      VS         Websocket
+
+Stateless API : A stateless API does not store client information between requests.
+Stateful API :  A stateful API remembers information about the client between requests.
+
+Playwright (WebSocket)
+
+Test Script
+↓
+Playwright
+↓
+WebSocket Connection (Always Open)
+↓
+Browser
+
+================================================================================
+                    BROWSER ARCHITECTURE & PLAYWRIGHT
+================================================================================
+
+
+WHY PLAYWRIGHT IS FAST?
+================================================================================
+
+TRADITIONAL SELENIUM ARCHITECTURE:
+--------------------------------------------------------------------------------
+Test Script
+     ↓
+WebDriver API
+     ↓
+Browser Driver
+     ↓
+Browser
+
+PROBLEM:
+• Multiple communication layers
+• Every command becomes an HTTP request
+• More latency
+
+PLAYWRIGHT ARCHITECTURE:
+--------------------------------------------------------------------------------
+Test Script
+     ↓
+Playwright
+     ↓
+Browser Native Protocol (WebSocket / CDP)
+     ↓
+Browser Internals
+
+BENEFIT:
+• Faster execution
+• Real-time communication
+• Direct access to browser components
+
+
+================================================================================
+                    BROWSER COMPONENTS AND PLAYWRIGHT MAPPING
+================================================================================
+
+
+1. RENDER PROCESS
+================================================================================
+
+WHAT IT DOES:
+--------------------------------------------------------------------------------
+Responsible for:
+• Rendering HTML
+• Rendering CSS
+• Executing JavaScript
+• Managing DOM
+• Running Web Workers
+
+LEARNING CONNECTION - page.goto()
+--------------------------------------------------------------------------------
+await page.goto("https://playwright.dev");
+
+What happens?
+• Network Process → Downloads page
+• Render Process →
+    - Parses HTML
+    - Builds DOM
+    - Executes JavaScript
+    - Renders UI
+
+LEARNING CONNECTION - locator()
+--------------------------------------------------------------------------------
+await page.locator('#username').fill('Admin');
+
+What happens?
+Playwright → Render Process → DOM Search → Element Found
+
+Reason: DOM lives inside Render Process.
+
+LEARNING CONNECTION - getByText()
+--------------------------------------------------------------------------------
+await page.getByText('Login').click();
+
+What happens?
+Render Process → Search Visible Text → Locate Element → Perform Action
+
+This is why text-based locators are Render Process activities.
+
+CSS SELECTORS:
+--------------------------------------------------------------------------------
+await page.locator('#username');
+await page.locator('.input-field');
+await page.locator('input[name="username"]');
+
+What happens?
+Playwright → Render Process → DOM Query Engine → Matching Element Returned
+
+
+2. BROWSER PROCESS
+================================================================================
+
+WHAT IT DOES:
+--------------------------------------------------------------------------------
+Responsible for:
+• Permissions
+• Security
+• Geolocation
+• User Input
+• Browser Settings
+
+LEARNING CONNECTION - Mouse Actions
+--------------------------------------------------------------------------------
+await page.click('#login');
+
+What happens?
+Playwright → Browser Process → Mouse Event Generated → Render Process Receives Event
+
+LEARNING CONNECTION - Keyboard Actions
+--------------------------------------------------------------------------------
+await page.keyboard.type('Admin');
+
+What happens?
+Browser Process → Keyboard Event → Target Element
+
+LEARNING CONNECTION - Geolocation Testing
+--------------------------------------------------------------------------------
+const context = await browser.newContext({
+  geolocation: {
+    latitude: 13.0827,
+    longitude: 80.2707
+  },
+  permissions: ['geolocation']
+});
+
+What happens?
+Playwright → Browser Process → Location Permission → Mock GPS Location
+
+LEARNING CONNECTION - Permissions
+--------------------------------------------------------------------------------
+permissions: ['notifications']
+
+What happens?
+Browser Process → Grant Permission → Application Uses Notification API
+
+
+3. NETWORK PROCESS
+================================================================================
+
+WHAT IT DOES:
+--------------------------------------------------------------------------------
+Responsible for:
+• HTTP Requests
+• HTTP Responses
+• WebSockets
+• API Communication
+
+LEARNING CONNECTION - page.goto()
+--------------------------------------------------------------------------------
+await page.goto(url);
+
+What happens?
+Network Process → Request Sent → Response Received → Page Delivered
+
+LEARNING CONNECTION - API Testing
+--------------------------------------------------------------------------------
+const response = await request.get('/users');
+
+What happens?
+Playwright → Network Process → HTTP Request → HTTP Response
+
+LEARNING CONNECTION - Network Interception
+--------------------------------------------------------------------------------
+await page.route('**/users', route => {
+  route.fulfill({
+    status: 200
+  });
+});
+
+What happens?
+Playwright → Network Process → Intercept Request → Modify Response
+
+This is one reason Playwright is powerful.
+
+
+4. SERVICE WORKER PROCESS
+================================================================================
+
+WHAT IT DOES:
+--------------------------------------------------------------------------------
+Responsible for:
+• Caching
+• Offline Mode
+• Push Notifications
+• PWA Support
+
+LEARNING CONNECTION:
+--------------------------------------------------------------------------------
+Suppose application supports:
+• Offline Shopping
+• Offline Banking
+• Offline Ticket Booking
+
+Service Worker:
+• Stores Cached Data
+• Handles Offline Requests
+
+Playwright can inspect and validate this behavior.
+
+
+================================================================================
+              RELATION TO WEBSOCKET vs W3C PROTOCOL
+================================================================================
+
+SELENIUM ARCHITECTURE:
+--------------------------------------------------------------------------------
+Test → HTTP Request → Driver → Browser
+
+Uses: W3C WebDriver Protocol
+
+Every command: New Request + New Response
+
+PLAYWRIGHT ARCHITECTURE:
+--------------------------------------------------------------------------------
+Test → Persistent WebSocket → Browser Internals
+
+Directly communicates with:
+• Browser Process
+• Network Process
+• Render Process
+• Service Worker Process
+
+WHY PLAYWRIGHT IS MORE EFFICIENT:
+--------------------------------------------------------------------------------
+Playwright can do:
+• page.route()
+• page.on('request')
+• page.on('response')
+• page.context()
+• browser.newContext()
+
+more efficiently than Selenium because of WebSocket communication.
+
+
+================================================================================
+              RELATION TO IN-PROCESS vs OUT-OF-PROCESS
+================================================================================
+
+CYPRESS:
+--------------------------------------------------------------------------------
+Runs Inside Render Process
+
+Characteristics:
+• In-Process Automation
+• Shares Browser Runtime
+
+SELENIUM:
+--------------------------------------------------------------------------------
+Runs Outside Browser
+Uses Driver
+
+Characteristics:
+• Out-of-Process Automation
+
+PLAYWRIGHT:
+--------------------------------------------------------------------------------
+Runs Outside Browser + Direct Browser Communication
+
+Characteristics:
+• Hybrid Architecture
+• Process Isolation like Selenium
+• Speed similar to In-Process tools
+
+
+================================================================================
+                        INTERVIEW SUMMARY TABLE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Browser Component          │ Related Playwright Concepts                    │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│ Render Process             │ DOM, CSS Selectors, Locator, getByText(),      │
+│                            │ JavaScript Execution                           │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│ Browser Process            │ Mouse Actions, Keyboard Actions, Permissions,  │
+│                            │ Geolocation                                     │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│ Network Process            │ page.goto(), API Testing, route(),             │
+│                            │ Request/Response Monitoring                    │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│ Service Worker Process     │ Offline Testing, Caching, PWA Validation       │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│ WebSocket Communication    │ Fast Browser Control, Real-Time Events         │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│ Hybrid Architecture        │ Selenium Isolation + Cypress Speed             │
+└────────────────────────────┴────────────────────────────────────────────────┘
+
+
+================================================================================
+                      QUICK REFERENCE - KEY INSIGHTS
+================================================================================
+
+PLAYWRIGHT ARCHITECTURE ADVANTAGES:
+--------------------------------------------------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. Direct WebSocket communication (not HTTP requests)                       │
+│ 2. Access to all four browser processes                                     │
+│ 3. Process isolation (like Selenium) + Speed (like Cypress)                 │
+│ 4. Built-in network interception and mocking                                │
+│ 5. Real-time event monitoring                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+WHY PLAYWRIGHT IS BETTER THAN SELENIUM:
+--------------------------------------------------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Selenium Issue                    │ Playwright Solution                     │
+├────────────────────────────────────┼────────────────────────────────────────┤
+│ HTTP request per command           │ Persistent WebSocket connection        │
+│ No network interception            │ Built-in page.route()                  │
+│ Limited context isolation          │ browser.newContext()                   │
+│ No mobile emulation                │ Built-in device emulation              │
+│ Slow execution                     │ Direct browser communication           │
+└────────────────────────────────────┴────────────────────────────────────────┘
+
+WHY PLAYWRIGHT IS BETTER THAN CYPRESS:
+--------------------------------------------------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Cypress Limitation                 │ Playwright Solution                     │
+├────────────────────────────────────┼────────────────────────────────────────┤
+│ Runs inside browser (same process) │ Separate process (no side effects)     │
+│ No multi-tab support               │ Full multi-page/window support         │
+│ Limited cross-browser              │ Chrome, Firefox, Safari, Edge          │
+│ No iframe support                  │ Full iframe support                    │
+│ Cannot handle popups               │ Complete popup/window handling         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                    ONE-LINE TAKEAWAY (INTERVIEW READY)
+================================================================================
+
+"Every Playwright action ultimately interacts with one of four browser
+components: Render Process, Browser Process, Network Process, or Service Worker
+Process. Understanding these components explains why Playwright is faster, more
+reliable, and capable of advanced automation scenarios."
+
+
+================================================================================
+                    BONUS - REAL INTERVIEW ANSWER STRUCTURE
+================================================================================
+
+If asked "Why is Playwright faster than Selenium?"
+
+ANSWER STRUCTURE:
+--------------------------------------------------------------------------------
+1. Selenium uses HTTP requests for each command (multiple layers)
+2. Playwright uses persistent WebSocket (direct communication)
+3. Playwright can interact directly with:
+   - Render Process (DOM operations)
+   - Browser Process (user interactions)
+   - Network Process (API calls)
+   - Service Worker Process (offline/PWA)
+4. Result: Real-time, bi-directional communication with no HTTP overhead
+
+If asked "How does Playwright interact with browser components?"
+
+ANSWER STRUCTURE:
+--------------------------------------------------------------------------------
+1. Render Process → DOM, locators, getByText()
+2. Browser Process → mouse, keyboard, permissions, geolocation
+3. Network Process → goto(), API testing, route()
+4. Service Worker → offline testing, caching, PWA
+
+------------------------------------------------------------------------
+
+================================================================================
+                    PLAYWRIGHT CONFIGURATION & COMMANDS
+================================================================================
+
+
+CONFIGURATION FILE EXPLANATION
+================================================================================
+
+Before you execute your first Playwright script, follow below steps for better
+understanding of configuration file:
+
+STEP 1: Set headless: false
+--------------------------------------------------------------------------------
+export default defineConfig({
+  use: {
+    headless: false,  // Shows browser UI while testing
+  },
+});
+
+Why: Helps visualize test execution during development
+
+STEP 2: Comment Firefox and WebKit projects
+--------------------------------------------------------------------------------
+projects: [
+  {
+    name: 'chromium',
+    use: { ... },
+  },
+  // {
+  //   name: 'firefox',
+  //   use: { ... },
+  // },
+  // {
+  //   name: 'webkit',
+  //   use: { ... },
+  // },
+];
+
+Why: Faster execution during development (run only Chromium)
+
+STEP 3: Set workers: 1
+--------------------------------------------------------------------------------
+export default defineConfig({
+  workers: 1,  // Run tests sequentially
+});
+
+Why: Easier debugging (no parallel execution conflicts)
+
+
+================================================================================
+                    COMMONLY USED COMMANDS
+================================================================================
+
+COMMAND                                  PURPOSE
+--------------------------------------------------------------------------------
+npx playwright test                      Run all tests
+npx playwright test filename.spec.ts     Run specific test file
+npx playwright test --grep "login"       Run tests matching pattern
+npx playwright test --project=chromium   Run tests on specific browser
+npx playwright test --headed             Run with UI visible
+npx playwright test --debug              Run in debug mode
+npx playwright show-report               Open test report in browser
+npx playwright codegen                   Open test recorder
+
+DEFAULT MODE:
+--------------------------------------------------------------------------------
+headless = true (runs without UI by default)
+
+
+================================================================================
+                    MAXIMIZE SCREEN SIZE
+================================================================================
+
+CHROMIUM (Method 1 - Viewport null):
+--------------------------------------------------------------------------------
+{
+  name: 'chromium',
+  use: { 
+    channel:'msedge',
+    viewport: null,  // Disable the default 1280x720
+    launchOptions: {
+      args: ['--start-maximized'],
+    },
+  },
+}
+
+CHROMIUM (Method 2 - Viewport fixed):
+--------------------------------------------------------------------------------
+{
+  name: 'chromium',
+  use: {
+    channel:'msedge',
+    viewport: { width: 1920, height: 1080 },
+    launchOptions: {
+      args: ['--start-maximized'],
+    },
+  },
+}
+
+FIREFOX:
+--------------------------------------------------------------------------------
+{
+  name: 'firefox',
+  use: {
+    browserName: "firefox",
+    viewport: { width: 1920, height: 1080 },  // Firefox doesn't support null viewport
+    launchOptions: {
+      args: ['--start-maximized'],
+    },
+  },
+}
+
+WEBKIT (Safari):
+--------------------------------------------------------------------------------
+{
+  name: 'webkit',
+  use: {
+    browserName: "webkit",
+    viewport: { width: 1920, height: 1080 },
+    launchOptions: {
+      args: ['--start-maximized'],
+    },
+  },
+}
+
+
+================================================================================
+                    NODE TYPES REFERENCE
+================================================================================
+
+/// <reference types="node" />
+
+WHAT IT DOES:
+--------------------------------------------------------------------------------
+This tells TypeScript to include Node.js type definitions so things like
+process are recognized.
+
+WHY YOU GET ERROR WITHOUT IT:
+--------------------------------------------------------------------------------
+In your config, you're using:
+process.env.CI
+
+process is a Node.js global, not a browser/JS standard.
+TypeScript doesn't automatically know about Node globals unless you tell it.
+
+So without this line:
+/// <reference types="node" />
+
+TypeScript thinks:
+❌ Cannot find name 'process'
+
+WHAT THIS LINE ACTUALLY DOES:
+--------------------------------------------------------------------------------
+It pulls in types from @types/node which defines things like:
+• process
+• __dirname
+• Buffer
+• fs, path, etc.
+
+WHERE TO ADD:
+--------------------------------------------------------------------------------
+// playwright.config.ts
+/// <reference types="node" />
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // config here
+});
+
+
+================================================================================
+                    PRIORITY OF EXECUTION
+================================================================================
+
+PRIORITY ORDER (Highest to Lowest):
+--------------------------------------------------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. Terminal Command Line (Highest Priority)                                 │
+│ 2. Script / Test File                                                       │
+│ 3. Configuration File (Lowest Priority)                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+EXAMPLES:
+--------------------------------------------------------------------------------
+# Terminal overrides everything
+npx playwright test brow.spec.ts --project=firefox
+
+# Uses script configuration
+npx playwright test brow.spec.ts
+
+# Uses config file defaults
+npx playwright test brow.spec.ts
+
+
+================================================================================
+                    FREQUENTLY ASKED QUESTIONS
+================================================================================
+
+QUESTION 1: Does Playwright use my installed browser?
+--------------------------------------------------------------------------------
+
+ANSWER: NO (by default)
+--------------------------------------------------------------------------------
+Playwright does NOT use the browser already installed on your machine.
+When you install Playwright, it downloads its own browser binaries
+(Chromium, Firefox, WebKit) into a local cache.
+
+DEFAULT BROWSER STORAGE LOCATION:
+--------------------------------------------------------------------------------
+C:\Users\DELL\AppData\Local\ms-playwright
+
+FLOW:
+--------------------------------------------------------------------------------
+Your Test → Playwright → Downloaded Chromium.exe → Browser Launches
+
+WHY PLAYWRIGHT DOWNLOADS ITS OWN BROWSERS:
+--------------------------------------------------------------------------------
+• Ensures every team member uses the exact same browser version
+• Prevents failures caused by browser updates on individual machines
+• Makes test execution consistent across local, CI/CD, and production
+
+PROBLEM IT SOLVES:
+--------------------------------------------------------------------------------
+• Avoids "Works on my machine" issues
+• Eliminates browser version mismatch problems
+• Ensures stable and repeatable test execution
+
+CAN PLAYWRIGHT USE MY INSTALLED BROWSER?
+--------------------------------------------------------------------------------
+YES, with channel option:
+
+await chromium.launch({
+  channel: 'chrome'  // Uses installed Chrome
+});
+
+await chromium.launch({
+  channel: 'msedge'  // Uses installed Edge
+});
+
+QUICK REFERENCE TABLE:
+--------------------------------------------------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Browser Type                        │ Uses Installed Browser?               │
+├─────────────────────────────────────┼───────────────────────────────────────┤
+│ chromium.launch()                   │ No (uses downloaded .exe)             │
+│ firefox.launch()                    │ No (uses downloaded .exe)             │
+│ webkit.launch()                     │ No (uses downloaded .exe)             │
+│ chromium.launch({channel:'chrome'}) │ Yes (uses system Chrome)              │
+│ chromium.launch({channel:'msedge'}) │ Yes (uses system Edge)                │
+└─────────────────────────────────────┴───────────────────────────────────────┘
+
+
+QUESTION 2: Why .spec.ts extension is mandatory?
+--------------------------------------------------------------------------------
+
+ANSWER: .spec.ts is NOT technically mandatory.
+--------------------------------------------------------------------------------
+It is the default naming convention used by the Playwright Test Runner to
+discover test files.
+
+WHY WE USE .spec.ts:
+--------------------------------------------------------------------------------
+• Clearly distinguishes test files from framework and utility files
+• Helps Playwright automatically discover test files
+• Separates test files from utility, page object, and configuration files
+• Makes large frameworks easier to organize
+
+CUSTOMIZATION OPTION:
+--------------------------------------------------------------------------------
+The pattern can be customized using testMatch configuration:
+
+export default defineConfig({
+  testMatch: '**/*.test.ts',  // Use .test.ts instead of .spec.ts
+});
+
+PROBLEM IT SOLVES:
+--------------------------------------------------------------------------------
+• Prevents Playwright from executing non-test files accidentally
+• Improves test discovery and execution
+• Keeps framework structure clean and maintainable
+
+CAN WE USE A DIFFERENT EXTENSION?
+--------------------------------------------------------------------------------
+YES! You can configure testMatch to use any pattern:
+• *.test.ts
+• *.e2e.ts
+• *.playwright.ts
+• any custom pattern
+
+
+QUESTION 3: What are Test Count and Workers Count?
+--------------------------------------------------------------------------------
+
+ANSWER:
+--------------------------------------------------------------------------------
+TEST COUNT:
+Number of test cases Playwright discovered and is going to execute.
+
+WORKERS COUNT:
+Number of parallel worker processes Playwright created to run those tests.
+
+HOW COUNTS CHANGE:
+--------------------------------------------------------------------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Factor                    │ Effect on Test Count    │ Effect on Workers    │
+├───────────────────────────┼─────────────────────────┼──────────────────────┤
+│ Number of test() blocks   │ Directly proportional   │ No effect            │
+│ test.describe() grouping  │ No effect               │ No effect            │
+│ test.skip() / test.only() │ Increases/Decreases     │ No effect            │
+│ workers config            │ No effect               │ Directly proportional│
+│ --workers flag            │ No effect               │ Overrides config     │
+│ CPU cores on machine      │ No effect               │ Max limit            │
+└────────────────────────────┴─────────────────────────┴──────────────────────┘
+
+EXAMPLE OUTPUT:
+--------------------------------------------------------------------------------
+Running 12 tests using 4 workers
+
+Meaning:
+• 12 test cases discovered
+• 4 parallel processes running them
+• Each worker runs ~3 tests
+
+DEFAULT BEHAVIOR:
+--------------------------------------------------------------------------------
+• Workers default to: number of CPU cores / 2
+• Tests distributed evenly across workers
+• Tests run in parallel by default
+
+CONFIGURING WORKERS:
+--------------------------------------------------------------------------------
+// In config file
+export default defineConfig({
+  workers: 2,  // Force 2 workers
+});
+
+// Command line override
+npx playwright test --workers=1  // Sequential execution
+
+WHEN WORKERS = 1:
+--------------------------------------------------------------------------------
+• Tests run sequentially
+• Easier debugging
+• No test interference
+• Slower execution
+
+WHEN WORKERS > 1:
+--------------------------------------------------------------------------------
+• Tests run in parallel
+• Faster execution
+• May cause test conflicts
+• Requires isolated test data
+
+
+========================================================================
+
+
+What is a page fixture :
+------------------------
+In Playwright, a page fixture is a predefined setup that provides a fresh browser page for each test. 
+It ensures that tests run in isolation, preventing interference from previous tests. 
+The page fixture is part of Playwright's test runner and is automatically available in test functions.
+
+-------------------------------------------------------------------------------------
+
+DOM Structure :
+--------------
+Document Object Model (DOM) is a programming interface for web documents. It represents the page so that programs can change the document structure, style, and content. The DOM represents the document as nodes and objects; that way, programming languages can interact with the page.
+
+<html>
+  <head>
+    <title>Testleaf Page</title>
+  </head>
+  <body>
+    <div>
+      <h1>Welcome to Testleaf</h1>
+      <p>This is a sample paragraph.</p>
+
+      <!-- Label and Textbox -->
+      <label for="username">Enter Name:</label>
+      <input type="text" id="username" name="username">
+
+    </div>
+  </body>
+</html>
+
+
+CSS Selectors :
+-----------------
+1. By ID :
+Syntax : #idValue 
+Example : #username
+
+2. By Class :
+Syntax : .classValue
+Example : .inputLogin
+
+3. By Attribute :
+[tagName[attribute='value']]
+Example : input[id='username']
+
+4. Descendant Combinator 
+Example : form input
+
+5. Child Combinator
+Example : form > input
+
+
+
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================
