@@ -1,0 +1,810 @@
+📑 Agenda – Day 05 | Handling Playwright Locators [DropDown, Alert] 
+⏱ Total Duration: 3.5 Hours
+
+================================================================================
+                    PLAYWRIGHT LOCATOR - DEEP DIVE
+================================================================================
+
+METHOD SIGNATURE
+================================================================================
+
+page.locator(selector): Locator
+
+RETURN TYPE: Locator (NOT Element, HTMLElement, ElementHandle, or Array)
+
+It always returns a Locator object.
+
+
+WHAT IS A LOCATOR?
+================================================================================
+
+A Locator is a smart object that knows:
+  • How to find an element
+  • When to find an element
+  • How to retry finding an element
+
+EXAMPLE:
+--------------------------------------------------------------------------------
+const username = page.locator('#username');
+
+At this point:
+  • No DOM lookup happened
+  • No element was found yet
+  • Only a Locator object is created
+
+
+LAZY EVALUATION
+================================================================================
+
+const username = page.locator('#username');
+
+Playwright stores: "Whenever needed, find element matching #username"
+
+Actual lookup happens here:
+await username.fill('admin');
+
+
+SCENARIO 1: EXACTLY ONE ELEMENT MATCHES
+================================================================================
+
+DOM:
+<input id="username">
+
+CODE:
+--------------------------------------------------------------------------------
+const username = page.locator('#username');
+await username.fill('admin');
+
+PLAYWRIGHT FLOW:
+--------------------------------------------------------------------------------
+Locator → Find matching elements → Found 1 element → Perform action
+
+RESULT: SUCCESS
+
+
+SCENARIO 2: MULTIPLE ELEMENTS MATCH
+================================================================================
+
+DOM:
+<button>Login</button>
+<button>Login</button>
+
+CODE:
+--------------------------------------------------------------------------------
+await page.locator('button').click();
+
+PLAYWRIGHT FLOW:
+--------------------------------------------------------------------------------
+Locator → Find matching elements → Found 2 elements → click() requires ONE element
+
+RESULT: STRICT MODE VIOLATION
+
+ERROR:
+locator('button') resolved to 2 elements
+
+
+SCENARIO 3: NO ELEMENTS MATCH
+================================================================================
+
+DOM: (No matching element)
+
+CODE:
+--------------------------------------------------------------------------------
+await page.locator('#username').fill('admin');
+
+PLAYWRIGHT FLOW:
+--------------------------------------------------------------------------------
+Auto Wait → Retry → Retry → Retry → Timeout
+
+RESULT: Timeout Error
+
+
+BUT WAIT... LOCATOR CAN REPRESENT MULTIPLE ELEMENTS!
+================================================================================
+
+EXAMPLE:
+const buttons = page.locator('button');
+
+DOM:
+<button>Save</button>
+<button>Delete</button>
+<button>Cancel</button>
+
+Locator contains: 3 matching elements
+
+NO ERROR YET! Because const buttons = page.locator('button'); is only creating
+a Locator.
+
+
+WHEN DOES ERROR HAPPEN?
+================================================================================
+
+When you perform an action requiring uniqueness.
+
+EXAMPLE:
+await buttons.click();
+
+Now: 3 buttons found → Error: Strict Mode Violation
+
+
+HOW TO HANDLE MULTIPLE ELEMENTS?
+================================================================================
+
+METHOD           | EXAMPLE                                                    |
+-----------------|------------------------------------------------------------|
+first()          | await page.locator('button').first().click();              |
+last()           | await page.locator('button').last().click();               |
+nth()            | await page.locator('button').nth(1).click();               |
+all()            | const buttons = await page.locator('button').all();        |
+                 | Returns: Locator[]                                         |
+count()          | const count = await page.locator('button').count();        |
+                 | Returns: number (e.g., 3)                                  |
+
+
+COMMON INTERVIEW QUESTIONS
+================================================================================
+
+Q: Does page.locator() return the element?
+--------------------------------------------------------------------------------
+A: NO. page.locator() returns a Locator, which is a query object, not the
+   actual element.
+
+Q: Does locator immediately find the element?
+--------------------------------------------------------------------------------
+A: NO. Locator uses Lazy Evaluation. The actual DOM lookup happens only when
+   an action or assertion is executed.
+
+Q: What if locator matches multiple elements?
+--------------------------------------------------------------------------------
+A: Locator creation succeeds. If an action like click() or fill() is performed,
+   Playwright throws a Strict Mode Violation because the action requires a
+   single unique element. To work with multiple matches, use first(), last(),
+   nth(), count(), or all().
+
+
+MENTAL MODEL
+================================================================================
+
+const locator = page.locator('button');
+
+Think of it as:
+
+  "I know HOW to find the button, but I won't search for it until you ask me
+   to do something."
+
+
+QUICK REFERENCE TABLE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Scenario                    │ Behavior                                       │
+├─────────────────────────────┼────────────────────────────────────────────────┤
+│ Creating Locator            │ No DOM lookup (Lazy Evaluation)               │
+│ 1 element matches           │ Action succeeds                                │
+│ Multiple elements match     │ Strict Mode Violation on action               │
+│ No elements match           │ Auto-wait + Retry → Timeout                   │
+│ .first() / .last() / .nth() │ Returns new Locator for specific element      │
+│ .all()                      │ Returns array of Locator objects              │
+│ .count()                    │ Returns number of matching elements           │
+└─────────────────────────────┴────────────────────────────────────────────────┘
+
+
+ONE-LINE TAKEAWAY (INTERVIEW READY)
+================================================================================
+
+"page.locator() returns a Locator object, not an element. It uses lazy
+evaluation, meaning actual DOM lookup happens only when an action or assertion
+is performed. If multiple elements match, actions requiring uniqueness throw
+a Strict Mode Violation."
+
+================================================================================
+                             
+CSS Selectors in Playwright
+What is a CSS Selector?
+
+CSS Selectors are patterns used to locate HTML elements based on:
+
+Tag Name
+ID
+Class
+Attribute
+Attribute Value
+Partial Attribute Value
+
+In Playwright:
+
+await page.locator('css-selector');
+
+Example:
+
+await page.locator('#username');
+
+Understanding the Building Blocks
+
+Consider the element:
+
+<input id="username"
+       class="input-field"
+       name="userName"
+       type="text"
+       placeholder="Enter Username">
+
+Part	        Value
+--------------------------
+Tag Name	input
+ID Attribute	id
+ID Value	username
+Class Attribute	class
+Class Value	input-field
+Name Attribute	name
+Name Value	userName
+Type Attribute	type
+Type Value	text
+
+
+1. ID Selector (#)
+-------------------------
+Syntax
+#attributeValue
+
+or
+
+tagName#attributeValue
+
+Breakdown  : input#username
+
+Part		Meaning
+-------------------------
+input		Tag Name
+#		Represents ID
+username	ID Value
+
+HTML
+
+<input id="username">
+
+Playwright
+
+await page.locator('#username');
+
+await page.locator('input#username');
+
+2. Class Selector (.)
+-------------------------
+Syntax
+.classValue
+
+or
+
+tagName.classValue
+
+Breakdown :	button.btn-primary
+
+Part		Meaning
+-------------------------
+button		Tag Name
+.		Represents Class
+btn-primary	Class Value
+
+HTML
+
+<button class="btn-primary">
+
+Playwright
+
+await page.locator('.btn-primary');
+
+await page.locator('button.btn-primary');
+
+3. Attribute Selector ([])
+-------------------------
+Syntax
+tagName[attribute='value']
+
+Breakdown :	input[name='username']
+
+Part		Meaning
+-------------------------
+input		Tag Name
+name		Attribute Name
+username	Attribute Value
+
+HTML
+
+<input name="username">
+
+Playwright
+
+await page.locator("input[name='username']");
+
+
+4. Combining Multiple Attributes
+---------------------------------
+
+When one attribute is not enough to uniquely identify an element.
+
+Syntax
+
+tagName[attribute1='value1'][attribute2='value2']
+
+Example
+
+input[name='username'][type='text']
+
+Part		Meaning
+-------------------------
+input		Tag Name
+name		Attribute 1
+username	Attribute 1 Value
+type		Attribute 2
+text		Attribute 2 Value
+
+Playwright
+
+await page.locator("input[name='username'][type='text']");
+
+
+Combining ID and Attribute
+-------------------------
+Syntax
+tagName#idValue[attribute='value']
+
+Example
+
+a#crmLink[href='/crmsfa/control/main']
+
+Part		Meaning
+-------------------------
+a		Tag Name
+#crmLink	ID Value
+href		Attribute
+/crmsfa/	Attribute Value
+
+Playwright
+
+await page.locator("a#crmLink[href='/crmsfa/control/main']");
+
+5. Substring Matching
+-------------------------
+
+Used when values are dynamic.
+
+Example:
+
+<input id="user_12345">
+
+Tomorrow:
+
+<input id="user_67890">
+
+Exact ID matching will fail.
+
+A) Starts With (^=)
+-------------------------
+Syntax
+tagName[attribute^='prefix']
+
+Example :	input[id^='user_']
+
+Part	Meaning
+-------------------------
+input	Tag Name
+id	Attribute
+^=	Starts With
+user_	Prefix
+
+Matches:
+
+<input id="user_12345">
+<input id="user_56789">
+
+Playwright
+
+await page.locator("input[id^='user_']");
+
+B) Ends With ($=)
+-------------------------
+Syntax
+tagName[attribute$='suffix']
+
+Example : input[id$='12345']
+
+Part	Meaning
+------------------
+input	Tag Name
+id	Attribute
+$=	Ends With
+12345	Suffix
+
+Matches:
+
+<input id="user_12345">
+
+Playwright
+
+await page.locator("input[id$='12345']");
+
+
+C) Contains (*=)
+-------------------------
+Syntax
+
+tagName[attribute*='substring']
+
+Example :	input[id*='user']
+
+
+Part	Meaning
+-------------------------
+input	Tag Name
+id	Attribute
+*=	Contains
+user	Substring
+
+Matches:
+
+<input id="user_12345">
+<input id="admin_user">
+
+Playwright
+
+await page.locator("input[id*='user']");
+
+----------------------------------------------------------------------------------
+
+
+Playwright locator methods :
+----------------------------
+
+nth(), first(), and last() are Playwright Locator API methods.
+
+They help you choose which element to act on when a locator matches multiple elements.
+
+Strict Mode Violation Error :
+-----------------------------
+When a locator matches more than one element, Playwright throws an error to prevent ambiguity.
+To fix this, use nth(), first(), or last() to specify which element you want to interact with.
+
+-------------------------------------------------------------------------------------
+What is a page fixture :
+------------------------
+In Playwright, a page fixture is a predefined setup that provides a fresh browser page for each test. 
+It ensures that tests run in isolation, preventing interference from previous tests. 
+The page fixture is part of Playwright's test runner and is automatically available in test functions.
+
+-------------------------------------------------------------------------------------
+Classroom Activity :
+----------------------
+
+Write a Playwright script to perform the following actions on the Salesforce login page:
+1. Navigate to the Salesforce login page.
+2. Use different CSS selector strategies (ID, Class, Attribute) to locate the username and password fields.
+3. Enter sample credentials into the username and password fields.
+4. Click the login button using a CSS selector.
+5. Verify that the login was successful by checking for a specific element on the landing page.
+
+https://login.salesforce.com/?locale=in
+Sample credentials :
+Username:dilipkumar.rajendran@testleaf.com
+Password: TestLeaf@2025
+-------------------------------------------------
+
+Attribute priority :
+-----------------------
+1️⃣ aria-label – Accessibility-based, stable, first choice
+2️⃣ id – Unique, fast
+3️⃣ name – Usually stable, not always unique
+4️⃣ class – For styling, changes often → least reliable
+
+
+Notes:
+------
+Xpath two types:
+
+1. Absolute Xpath
+2. Relative Xpath 
+
+-----------------------------------------------------------------------------
+
+Absolute Xpath :
+/html/body/div[2]/div[2]/div/form/p/input
+
+Relative Xpath :
+
+Two types :
+
+Basic Relative Xpath :
+
+//tagName[@attribute='attributeValue’] --> attribute based xpath
+//tagName[text()='text value in DOM']  --> text based xpath
+//tagName[contains(@attribute, 'Partial value of the attribute')] --> partial attribute based xpath
+//tagname[contains(text(),' Partial text in my DOM' ')] --> partial text based xpath
+(//tagName[@attribute='attributeValue'])[index] --> collection based xpath
+ 
+
+
+Advanced Relative Xpath Locators :
+--------------------------
+axes path : xpath based on relationship
+1) parent to child 
+syntax : // relative xpath of parent/ child tag
+//p[@class='top']/label
+
+2) child to parent
+syntax : // relative xpath of child/parent::parent tag
+//input[@id='password']/parent::p
+
+3) GP to GC
+syntax : // relative xpath of grand parent//Grand child tag
+//form[@id='login']//label
+
+
+4) GC to GP
+syntax : // relative xpath of grand child / ancestor:: grand parent tag
+//input[@class='decorativeSubmit']/ancestor::form
+
+5) elder sibling  to younger 
+syntax : // relative xpath of elder sibling / following-sibling:: younger sibling tag
+//label[text()='Username']/following-sibling::input
+
+6)younger to elder sibling  
+syntax : // relative xpath of younger sibling / preceding-sibling::   tag of elder sibling
+//input[@id='username']/preceding-sibling::label
+
+
+7)Elder Cousin to Younger Cousin : (Top to Bottom)
+
+Elder cousing relative xpath/following::tagName of younger Cousin --> //input[@id="username"]/following::label
+
+//input[@id="username"]/following::input
+
+8)Younger Cousin to Elder Cousin: (Bottom to Top)
+
+Younger cousin xpath/preceding::tagName of Elder cousin --> //label[text()='Password']/preceding::input
+
+(//input[@class="decorativeSubmit"]/preceding::input)[1]
+---------------------------------------------------------------
+
+================================================================================
+                              PLAYWRIGHT LOCATORS
+================================================================================
+
+INTRODUCTION
+================================================================================
+
+Locators are the central piece of Playwright's auto-waiting and retry-ability.
+In a nutshell, locators represent a way to find element(s) on the page at any
+moment.
+
+
+QUICK GUIDE - RECOMMENDED BUILT-IN LOCATORS
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Locator Method              │ Description                                    │
+├─────────────────────────────┼────────────────────────────────────────────────┤
+│ page.getByRole()            │ Locate by explicit/implicit accessibility      │
+│ page.getByText()            │ Locate by text content                         │
+│ page.getByLabel()           │ Locate form control by associated label text   │
+│ page.getByPlaceholder()     │ Locate input by placeholder attribute          │
+│ page.getByAltText()         │ Locate element (usually image) by alt text     │
+│ page.getByTitle()           │ Locate element by title attribute              │
+│ page.getByTestId()          │ Locate element by data-testid attribute        │
+└─────────────────────────────┴────────────────────────────────────────────────┘
+
+EXAMPLE USAGE:
+--------------------------------------------------------------------------------
+await page.getByLabel('User Name').fill('John');
+await page.getByLabel('Password').fill('secret-password');
+await page.getByRole('button', { name: 'Sign in' }).click();
+await expect(page.getByText('Welcome, John!')).toBeVisible();
+
+
+LOCATING ELEMENTS
+================================================================================
+
+Playwright comes with multiple built-in locators. To make tests resilient,
+prioritize user-facing attributes and explicit contracts such as getByRole().
+
+DOM Example:
+--------------------------------------------------------------------------------
+<button>Sign in</button>
+
+Locator:
+--------------------------------------------------------------------------------
+await page.getByRole('button', { name: 'Sign in' }).click();
+
+
+
+LOCATOR RE-USE (Dynamic Element Location)
+--------------------------------------------------------------------------------
+Every time a locator is used for an action, an up-to-date DOM element is
+located. If the DOM changes between calls, the new element is used.
+
+const locator = page.getByRole('button', { name: 'Sign in' });
+await locator.hover();
+await locator.click();
+
+
+LOCATE BY ROLE
+================================================================================
+
+The getByRole() locator reflects how users and assistive technology perceive
+the page. When locating by role, you should usually pass the accessible name.
+
+DOM Example:
+--------------------------------------------------------------------------------
+<h3>Sign up</h3>
+<label>
+  <input type="checkbox" /> Subscribe
+</label>
+<br/>
+<button>Submit</button>
+
+Locators:
+--------------------------------------------------------------------------------
+await expect(page.getByRole('heading', { name: 'Sign up' })).toBeVisible();
+await page.getByRole('checkbox', { name: 'Subscribe' }).check();
+await page.getByRole('button', { name: 'submit'}).click();
+
+Role locators include: buttons, checkboxes, headings, links, lists, tables, etc.
+They follow W3C specifications for ARIA role, attributes, and accessible name.
+
+WHEN TO USE ROLE LOCATORS:
+Prioritize role locators as they align with user and assistive technology
+perception.
+
+
+LOCATE BY LABEL
+================================================================================
+
+Most form controls have dedicated labels. Use getByLabel() to locate by
+associated label text.
+
+DOM Example:
+--------------------------------------------------------------------------------
+<label>Password <input type="password" /></label>
+
+Locator:
+--------------------------------------------------------------------------------
+await page.getByLabel('Password').fill('secret');
+
+WHEN TO USE LABEL LOCATORS:
+Use for locating form fields.
+
+
+LOCATE BY PLACEHOLDER
+================================================================================
+
+Inputs may have a placeholder attribute. Use getByPlaceholder().
+
+DOM Example:
+--------------------------------------------------------------------------------
+<input type="email" placeholder="name@example.com" />
+
+Locator:
+--------------------------------------------------------------------------------
+await page.getByPlaceholder('name@example.com').fill('playwright@microsoft.com');
+
+WHEN TO USE PLACEHOLDER LOCATORS:
+Use for form elements without labels but with placeholder text.
+
+
+LOCATE BY TEXT
+================================================================================
+
+Find an element by its text content using getByText(). Supports substring,
+exact string, or regular expression.
+
+DOM Example:
+--------------------------------------------------------------------------------
+<span>Welcome, John</span>
+
+Locators:
+--------------------------------------------------------------------------------
+await expect(page.getByText('Welcome, John')).toBeVisible();
+await expect(page.getByText('Welcome, John', { exact: true })).toBeVisible();
+await expect(
+    page.getByText(/welcome, [A-Za-z ]+$/i)
+).toBeVisible();
+NOTE:
+Matching by text normalizes whitespace (multiple spaces → one, line breaks →
+spaces, trims leading/trailing whitespace).
+
+WHEN TO USE TEXT LOCATORS:
+Use for non-interactive elements (div, span, p, etc.). For interactive elements
+(button, a, input), use role locators. Also useful for filtering items in lists.
+
+
+LOCATE BY ALT TEXT
+================================================================================
+
+Images should have alt attribute. Use getByAltText() to locate by text
+alternative.
+
+DOM Example:
+--------------------------------------------------------------------------------
+<img alt="playwright logo" src="/img/playwright-logo.svg" width="100" />
+
+Locator:
+--------------------------------------------------------------------------------
+await page.getByAltText('playwright logo').click();
+
+WHEN TO USE ALT LOCATORS:
+Use for elements supporting alt text (img, area).
+
+
+LOCATE BY TITLE
+================================================================================
+
+Locate an element with a matching title attribute using getByTitle().
+
+DOM Example:
+--------------------------------------------------------------------------------
+<span title='Issues count'>25 issues</span>
+
+Locator:
+--------------------------------------------------------------------------------
+await expect(page.getByTitle('Issues count')).toHaveText('25 issues');
+
+WHEN TO USE TITLE LOCATORS:
+Use when the element has a title attribute.
+
+
+LOCATE BY TEST ID
+================================================================================
+
+Testing by test ids is the most resilient way. QA and developers define explicit
+test ids and query with getByTestId(). However, it's not user-facing.
+
+DOM Example:
+--------------------------------------------------------------------------------
+<button data-testid="directions">Itinéraire</button>
+
+Locator:
+--------------------------------------------------------------------------------
+await page.getByTestId('directions').click();
+
+WHEN TO USE TESTID LOCATORS:
+Use when choosing the test id methodology or when role/text locators are not
+feasible.
+
+SET A CUSTOM TEST ID ATTRIBUTE:
+--------------------------------------------------------------------------------
+By default, getByTestId() uses data-testid. Configure a custom attribute in
+playwright.config.ts:
+
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    testIdAttribute: 'data-pw'
+  }
+});
+
+Now use in HTML:
+<button data-pw="directions">Itinéraire</button>
+
+Locator (same usage):
+await page.getByTestId('directions').click();
+
+
+CHAINING LOCATORS
+--------------------------------------------------------------------------------
+All locator creation methods are also available on Locator and FrameLocator
+classes, allowing chaining and iterative narrowing.
+
+const locator = page
+    .frameLocator('#my-frame')
+    .getByRole('button', { name: 'Sign in' });
+await locator.click();
+
+
+
+NOTE:
+Use the code generator to generate a locator, then edit it as needed.
+
+---------------------------------------------------------------------------------
+================================================================================
+                              END OF DOCUMENT
+================================================================================
